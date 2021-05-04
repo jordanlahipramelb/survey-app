@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, redirect, flash
+from flask import Flask, request, render_template, redirect, session, flash
 from flask_debugtoolbar import DebugToolbarExtension
 from surveys import satisfaction_survey as survey
 
@@ -8,8 +8,6 @@ app.config["SECRET_KEY"] = "jordan"
 app.config["DEBUG_TB_INTERCEPT_REDIRECTS"] = False
 
 debug = DebugToolbarExtension(app)
-
-RESPONSES = []
 
 
 @app.route("/")
@@ -22,38 +20,44 @@ def show_start_survey():
 def start_survey():
     """Clears the responses"""
 
-    RESPONSES = []
+    session["responses"] = []
     return redirect("/questions/0")
 
 
 @app.route("/answer", methods=["POST"])
-def handle_answers():
+def handle_responses():
     """Save response and go to next question"""
 
     # listens to the choice that the user selects
     choice = request.form["answer"]
 
-    # adds the choice to the RESPONSES
-    RESPONSES.append(choice)
+    # for a list stored in the session, you’ll need to rebind the name in the session in order to append the choice to the list.
+    responses = session["responses"]
+    responses.append(choice)
+    session["responses"] = responses
 
-    if len(RESPONSES) == len(survey.questions):
+    if len(responses) == len(survey.questions):
         return redirect("/complete")
     else:
-        return redirect(f"/questions/{len(RESPONSES)}")
+        return redirect(f"/questions/{len(responses)}")
 
 
 @app.route("/questions/<int:id>")
 def show_question(id):
     """Display current question"""
 
-    if RESPONSES is None:
+    # gets the responses session list
+    responses = session.get("responses")
+
+    if responses is None:
         return redirect("/")
 
-    if len(RESPONSES) != id:
-        flash(f"Invalid question id: {id}")
-        return redirect(f"/questions/{len(RESPONSES)}")
+    # this will redirect user to the last question they have not answered.
+    if len(responses) != id:
+        flash(f"Invalid id: {id}")
+        return redirect(f"/questions/{len(responses)}")
 
-    if len(RESPONSES) == len(survey.questions):
+    if len(responses) == len(survey.questions):
         return redirect("/complete")
 
     # accesses the question via index number
